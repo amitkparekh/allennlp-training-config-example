@@ -1,0 +1,265 @@
+{
+    "data_loader": {
+        "max_instances_in_memory": {
+            "next_utterance": 2000,
+            "status": 2000,
+            "supply_text": 2000
+        },
+        "num_workers": {
+            "next_utterance": 10,
+            "status": 10,
+            "supply_text": 10
+        },
+        "scheduler": {
+            "batch_size": 4
+        },
+        "shuffle": true,
+        "type": "multitask"
+    },
+    "dataset_reader": {
+        "readers": {
+            "next_utterance": {
+                "manual_distributed_sharding": true,
+                "manual_multiprocess_sharding": true,
+                "model_name": "bert-base-uncased",
+                "tokenizer_kwargs": {
+                    "namespace": "text_tags"
+                },
+                "type": "next-utterance-sequence",
+                "vocab_namespace_mapping": {
+                    "outcome_text": "outcome_labels",
+                    "speaker": "speaker_tags",
+                    "status": "status_labels",
+                    "supply_text": "supply_labels",
+                    "text": "text_tags"
+                }
+            },
+            "status": {
+                "manual_distributed_sharding": true,
+                "manual_multiprocess_sharding": true,
+                "model_name": "bert-base-uncased",
+                "tokenizer_kwargs": {
+                    "namespace": "text_tags"
+                },
+                "type": "status-classifier",
+                "vocab_namespace_mapping": {
+                    "outcome_text": "outcome_labels",
+                    "speaker": "speaker_tags",
+                    "status": "status_labels",
+                    "supply_text": "supply_labels",
+                    "text": "text_tags"
+                }
+            },
+            "supply_text": {
+                "manual_distributed_sharding": true,
+                "manual_multiprocess_sharding": true,
+                "model_name": "bert-base-uncased",
+                "tokenizer_kwargs": {
+                    "namespace": "text_tags"
+                },
+                "type": "supply-tokens-sequence",
+                "vocab_namespace_mapping": {
+                    "outcome_text": "outcome_labels",
+                    "speaker": "speaker_tags",
+                    "status": "status_labels",
+                    "supply_text": "supply_labels",
+                    "text": "text_tags"
+                },
+                "vocab_namespace_mapping_key": "supply_text"
+            }
+        },
+        "type": "multitask"
+    },
+    "distributed": {
+        "cuda_devices": [
+            0,
+            1,
+            2,
+            3
+        ],
+        "ddp_accelerator": {
+            "find_unused_parameters": true,
+            "type": "torch"
+        }
+    },
+    "model": {
+        "arg_name_mapping": {
+            "next_utterance": {
+                "next_utterance": "target_tokens"
+            },
+            "status": {
+                "status": "label"
+            },
+            "supply_text": {
+                "supply_text": "target_tokens"
+            }
+        },
+        "backbone": {
+            "context_encoder": {
+                "context_flags": {
+                    "speakers": true,
+                    "supply": true
+                },
+                "dropout": 0.1,
+                "embedding_dim": 800,
+                "type": "context"
+            },
+            "dialogue_encoder": {
+                "input_dim": 800,
+                "num_layers": 3,
+                "positional_encoding": "sinusoidal",
+                "type": "pytorch_transformer"
+            },
+            "speaker_embedder": {
+                "embedding_dim": 8,
+                "type": "embedding",
+                "vocab_namespace": "speaker_tags"
+            },
+            "supply_embedder": {
+                "embedding_dim": 8,
+                "num_embeddings": 10,
+                "subsequence_length": 3,
+                "type": "subsequence"
+            },
+            "text_field_embedder": {
+                "token_embedders": {
+                    "tokens": {
+                        "model_name": "bert-base-uncased",
+                        "type": "pretrained_transformer"
+                    }
+                }
+            },
+            "type": "basic",
+            "utterance_pooler": {
+                "dropout": 0.1,
+                "embedding_dim": 768,
+                "type": "max_pooler"
+            }
+        },
+        "heads": {
+            "next_utterance": {
+                "model_name": "bert-base-uncased",
+                "seq_decoder": {
+                    "beam_search": {
+                        "beam_size": 5
+                    },
+                    "decoder_net": {
+                        "decoding_dim": 800,
+                        "feedforward_hidden_dim": 2048,
+                        "num_attention_heads": 16,
+                        "num_layers": 6,
+                        "type": "pytorch_transformer",
+                        "use_causal_mask": true
+                    },
+                    "scheduled_sampling_ratio": 0,
+                    "target_embedder": {
+                        "embedding_dim": 800,
+                        "vocab_namespace": "text_tags"
+                    },
+                    "target_namespace": "text_tags"
+                },
+                "target_namespace": "text_tags",
+                "type": "pretrained_transformer_seq_decoder"
+            },
+            "status": {
+                "feedforward": {
+                    "activations": "gelu",
+                    "dropout": 0.1,
+                    "hidden_dims": [
+                        400,
+                        200,
+                        100
+                    ],
+                    "input_dim": 800,
+                    "num_layers": 3
+                },
+                "label_namespace": "status_labels",
+                "seq2vec_encoder": {
+                    "input_size": 800,
+                    "num_attention_heads": 8,
+                    "num_layers": 3,
+                    "pooler": {
+                        "dropout": 0.1,
+                        "embedding_dim": 800,
+                        "type": "max_pooler"
+                    },
+                    "type": "pytorch_transformer"
+                },
+                "type": "extended_classifier"
+            },
+            "supply_text": {
+                "seq_decoder": {
+                    "beam_search": {
+                        "beam_size": 5
+                    },
+                    "decoder_net": {
+                        "decoding_dim": 800,
+                        "feedforward_hidden_dim": 2048,
+                        "num_attention_heads": 25,
+                        "num_layers": 6,
+                        "type": "pytorch_transformer",
+                        "use_causal_mask": true
+                    },
+                    "scheduled_sampling_ratio": 1,
+                    "sequence_length": 3,
+                    "target_embedder": {
+                        "embedding_dim": 800,
+                        "vocab_namespace": "supply_labels"
+                    },
+                    "target_namespace": "supply_labels"
+                },
+                "type": "token_subsequence_decoder"
+            }
+        },
+        "type": "multitask"
+    },
+    "numpy_seed": 876170670,
+    "pytorch_seed": 876170670,
+    "random_seed": 876170670,
+    "train_data_path": {
+        "next_utterance": "data/train_utterance_split.jsonl",
+        "status": "data/train.jsonl",
+        "supply_text": "data/train.jsonl"
+    },
+    "trainer": {
+        "callbacks": [
+            {
+                "entity": "ENTITY",
+                "files_to_save": [
+                    "config.json",
+                    "out.log",
+                    "out_worker0.log",
+                    "out_worker1.log",
+                    "out_worker2.log",
+                    "out_worker3.log"
+                ],
+                "group": "WANDB GROUP",
+                "name": "RUN NAME",
+                "project": "PROJECT NAME",
+                "should_log_learning_rate": false,
+                "should_log_parameter_statistics": true,
+                "type": "alternative_wandb",
+                "watch_model": false
+            }
+        ],
+        "num_epochs": 20,
+        "num_gradient_accumulation_steps": 25,
+        "optimizer": {
+            "type": "huggingface_adamw"
+        },
+        "use_amp": true
+    },
+    "validation_data_path": {
+        "next_utterance": "data/val_utterance_split.jsonl",
+        "status": "data/val.jsonl",
+        "supply_text": "data/val.jsonl"
+    },
+    "vocabulary": {
+        "tokens_to_add": {
+            "supply_labels": [
+                "@end@",
+                "@start@"
+            ]
+        }
+    }
+}
